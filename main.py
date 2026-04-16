@@ -12,43 +12,56 @@ matplotlib.use('Agg')
 import re # Lägg till denna högst upp vid övriga imports
 
 def get_current_allsvenskan_ppg():
-    """Hämtar aktuell tabell och returnerar en lista med PPG för plats 1-16"""
-    try:
-        # Vi provar Everysport eller liknande stabil källa
-        url = "https://www.everysport.com/fotboll/allsvenskan/tabell"
-        headers = {'User-Agent': 'Mozilla/5.0'}
-        response = requests.get(url, headers=headers, timeout=10)
-        
-        # Pandas läser tabellen
-        df_list = pd.read_html(response.text)
-        
-        # Vi letar efter den största tabellen på sidan (oftast tabellen)
-        df_current = max(df_list, key=len)
+    """Hämtar aktuell tabell från flera källor för maximal stabilitet"""
+    sources = [
+        "https://www.everysport.com/fotboll/allsvenskan/tabell",
+        "https://www.fotbollskanalen.se/allsvenskan/tabell/"
+    ]
+    
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
 
-        # Identifiera kolumner för matcher (S/M) och poäng (P)
-        # Vi letar efter sifferkolumner
-        cols = df_current.columns
-        col_s = [c for c in cols if str(c).upper() in ['S', 'SM', 'M', 'MATCHER']][0]
-        col_p = [c for c in cols if str(c).upper() in ['P', 'POÄNG', 'PTS', 'PO']][0]
+    for url in sources:
+        try:
+            print(f"Försöker hämta data från: {url}")
+            response = requests.get(url, headers=headers, timeout=15)
+            if response.status_code != 200:
+                continue
 
-        # Konvertera till siffror och räkna ut PPG
-        df_current['S_val'] = pd.to_numeric(df_current[col_s], errors='coerce')
-        df_current['P_val'] = pd.to_numeric(df_current[col_p], errors='coerce')
-        
-        # Beräkna PPG (undvik div/0)
-        ppg_list = []
-        for _, row in df_current.iterrows():
-            if row['S_val'] > 0:
-                ppg_list.append(row['P_val'] / row['S_val'])
-            else:
-                ppg_list.append(0.0)
-        
-        print(f"Hämtade PPG: {ppg_list[:16]}")
-        return ppg_list[:16]
+            df_list = pd.read_html(response.text)
+            # Hämta den tabell som ser mest ut som en serietabell (flest rader/kolumner)
+            df = max(df_list, key=len)
 
-    except Exception as e:
-        print(f"Kunde inte hämta live-tabell: {e}. Använder reservvärden.")
-        return [0.0] * 16
+            # Rensa kolumnnamn från dolda tecken
+            df.columns = [str(c).strip().upper() for c in df.columns]
+            cols = df.columns
+
+            # Hitta kolumner för Matcher och Poäng
+            col_s = [c for c in cols if c in ['S', 'SM', 'M', 'MATCHER', 'GP']][0]
+            col_p = [c for c in cols if c in ['P', 'POÄNG', 'PTS', 'PO']][0]
+
+            # Konvertera till rena siffror (hanterar om det står "2-0" eller liknande skräp)
+            def clean_num(val):
+                s = re.sub(r'[^\d]', '', str(val))
+                return float(s) if s else 0.0
+
+            df['S_clean'] = df[col_s].apply(clean_num)
+            df['P_clean'] = df[col_p].apply(clean_num)
+
+            ppg_list = []
+            for _, row in df.iterrows():
+                ppg = row['P_clean'] / row['S_clean'] if row['S_clean'] > 0 else 0.0
+                ppg_list.append(ppg)
+
+            if any(p > 0 for p in ppg_list):
+                print(f"Framgång! Hämtade PPG: {ppg_list[:16]}")
+                return ppg_list[:16]
+                
+        except Exception as e:
+            print(f"Misslyckades med {url}: {e}")
+            continue
+
+    print("Kunde inte hämta data från någon källa. Returnerar nollor.")
+    return [0.0] * 16
 
 def generate_plot():
     current_dir = os.path.dirname(os.path.abspath(__file__))
