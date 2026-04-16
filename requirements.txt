@@ -1,5 +1,7 @@
-atproto
 pandas
 numpy
 matplotlib
 scipy
+atproto
+requests
+lxml
