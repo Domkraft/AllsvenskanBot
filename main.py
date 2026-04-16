@@ -155,7 +155,7 @@ def post_to_bluesky(image_path):
     client.login(handle, password)
     with open(image_path, 'rb') as f:
         img_data = f.read()
-    text = f"Allsvenskan {datetime.now().year}: Aktuellt PPG jämfört med historiska slutplaceringar (2008-2025). #Allsvenskan #Statistik #PPG"
+    text = f"Allsvenskan {datetime.now().year}: Aktuell PPG jämfört med historiska slutplaceringar (2008-2025). #Allsvenskan #Statistik #PPG"
     client.send_image(text=text, image=img_data, image_alt="Allsvenskan PPG Violin Chart")
 
 if __name__ == "__main__":
