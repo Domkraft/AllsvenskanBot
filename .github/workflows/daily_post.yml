@@ -1,0 +1,32 @@
+name: Daily PPG Update
+
+on:
+  schedule:
+    - cron: '0 8 * * *'  # Körs varje dag kl 08:00 UTC (ca kl 10:00 svensk tid)
+  workflow_dispatch:      # Gör att du kan köra den manuellt för att testa genom knappen på GitHub
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          # Installerar kärnbiblioteken om de saknas i requirements
+          pip install pandas numpy matplotlib scipy atproto
+
+      - name: Run PPG script
+        env:
+          BSKY_HANDLE: ${{ secrets.BSKY_HANDLE }}
+          BSKY_PASSWORD: ${{ secrets.BSKY_PASSWORD }}
+        run: python main.py
