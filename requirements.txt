@@ -1,0 +1,1 @@
+atproto\npandas\nnumpy\nmatplotlib\nscipy
