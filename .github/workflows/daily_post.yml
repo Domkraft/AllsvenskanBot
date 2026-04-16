@@ -2,7 +2,7 @@ name: Daily PPG Update
 
 on:
   schedule:
-    - cron: '0 8 * * *'
+    - cron: '1 9 * * *'
   workflow_dispatch:
 
 jobs:
