@@ -7,6 +7,11 @@ import os
 from datetime import datetime
 
 def generate_plot():
+    # Denna rad ser till att vi letar i samma mapp som skriptet ligger i
+    base_path = os.path.dirname(os.path.abspath(__file__))
+    file_path = os.path.join(base_path, 'allsvenskan_data.csv')
+    
+    df = pd.read_csv(file_path)
     # Ladda data
     df = pd.read_csv('allsvenskan_data.csv')
     years = [str(y) for y in range(2008, 2026)]
