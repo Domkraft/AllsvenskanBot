@@ -5,64 +5,61 @@ from scipy.stats import gaussian_kde
 from atproto import Client
 import os
 import requests
+import re
 from datetime import datetime
 import matplotlib
 matplotlib.use('Agg')
 
-import re # Lägg till denna högst upp vid övriga imports
-
 def get_current_allsvenskan_ppg():
-    """Hämtar aktuell tabell från flera källor för maximal stabilitet"""
-    sources = [
-        "https://www.everysport.com/fotboll/allsvenskan/tabell",
-        "https://www.fotbollskanalen.se/allsvenskan/tabell/"
-    ]
-    
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-
-    for url in sources:
-        try:
-            print(f"Försöker hämta data från: {url}")
-            response = requests.get(url, headers=headers, timeout=15)
-            if response.status_code != 200:
-                continue
-
-            df_list = pd.read_html(response.text)
-            # Hämta den tabell som ser mest ut som en serietabell (flest rader/kolumner)
+    """Hämtar aktuell tabell från Everysports specifika säsongssida"""
+    try:
+        url = "https://www.everysport.com/fotboll-herr/2026/liga/allsvenskan/36593"
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+        response = requests.get(url, headers=headers, timeout=15)
+        
+        # Läs alla tabeller
+        df_list = pd.read_html(response.text)
+        
+        # Vi tar den tabell som har ca 16 rader (Allsvenskan)
+        df = None
+        for table in df_list:
+            if 14 <= len(table) <= 20:
+                df = table
+                break
+        
+        if df is None:
+            # Fallback till den största om ingen matchar exakt
             df = max(df_list, key=len)
 
-            # Rensa kolumnnamn från dolda tecken
-            df.columns = [str(c).strip().upper() for c in df.columns]
-            cols = df.columns
+        # Rensa kolumnnamn
+        df.columns = [str(c).strip().upper() for c in df.columns]
+        print(f"Hittade kolumner: {df.columns.tolist()}")
 
-            # Hitta kolumner för Matcher och Poäng
-            col_s = [c for c in cols if c in ['S', 'SM', 'M', 'MATCHER', 'GP']][0]
-            col_p = [c for c in cols if c in ['P', 'POÄNG', 'PTS', 'PO']][0]
+        # Everysport använder ofta 'M' eller 'S' för matcher och 'P' för poäng
+        col_m = [c for c in df.columns if c in ['M', 'S', 'SM', 'MATCHER']][0]
+        col_p = [c for c in df.columns if c in ['P', 'POÄNG', 'PTS']][0]
 
-            # Konvertera till rena siffror (hanterar om det står "2-0" eller liknande skräp)
-            def clean_num(val):
-                s = re.sub(r'[^\d]', '', str(val))
-                return float(s) if s else 0.0
-
-            df['S_clean'] = df[col_s].apply(clean_num)
-            df['P_clean'] = df[col_p].apply(clean_num)
-
-            ppg_list = []
-            for _, row in df.iterrows():
-                ppg = row['P_clean'] / row['S_clean'] if row['S_clean'] > 0 else 0.0
+        # Räkna ut PPG för varje lag
+        ppg_list = []
+        for i, row in df.iterrows():
+            try:
+                # Vi rensar bort eventuella tecken och gör till siffror
+                m = float(re.sub(r'[^\d]', '', str(row[col_m])))
+                p = float(re.sub(r'[^\d]', '', str(row[col_p])))
+                ppg = p / m if m > 0 else 0.0
                 ppg_list.append(ppg)
+            except:
+                ppg_list.append(0.0)
 
-            if any(p > 0 for p in ppg_list):
-                print(f"Framgång! Hämtade PPG: {ppg_list[:16]}")
-                return ppg_list[:16]
-                
-        except Exception as e:
-            print(f"Misslyckades med {url}: {e}")
-            continue
+        # Returnera de 16 första
+        final_list = ppg_list[:16]
+        print(f"Hämtade PPG: {final_list}")
+        return final_list
 
-    print("Kunde inte hämta data från någon källa. Returnerar nollor.")
-    return [0.0] * 16
-
+    except Exception as e:
+        print(f"Kunde inte hämta tabell från Everysport: {e}")
+        return [0.0] * 16
+        
 def generate_plot():
     current_dir = os.path.dirname(os.path.abspath(__file__))
     file_path = os.path.join(current_dir, 'allsvenskan_data.csv')
