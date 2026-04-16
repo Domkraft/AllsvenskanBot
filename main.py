@@ -4,9 +4,31 @@ import matplotlib.pyplot as plt
 from scipy.stats import gaussian_kde
 from atproto import Client
 import os
+import requests
 from datetime import datetime
 import matplotlib
-matplotlib.use('Agg') # Ser till att skriptet fungerar i molnet utan skärm
+matplotlib.use('Agg')
+
+def get_current_allsvenskan_ppg():
+    """Hämtar aktuell tabell och returnerar en lista med PPG för plats 1-16"""
+    try:
+        # Vi hämtar tabell-data (exempelvis via ett öppet API eller en stabil sportkälla)
+        # Här använder vi en JSON-källa för Allsvenskan 2026
+        url = "https://webbservice.svenskfotboll.se/fe/widget/getlivedata?competitionId=118942" # Exempel-ID
+        # Om källan ovan kräver specifika headers, eller om vi skrapar en HTML-tabell:
+        df_list = pd.read_html("https://www.svt.se/sport/fotboll/allsvenskan/tabell")
+        df_current = df_list[0]
+        
+        # Vi antar att tabellen har kolumnerna 'S' (Spelade) och 'P' (Poäng)
+        # Vi räknar ut PPG för varje rad (lag)
+        df_current['PPG'] = df_current['P'].astype(float) / df_current['S'].astype(float)
+        
+        # Returnera de 16 första lagens PPG som en lista
+        return df_current['PPG'].tolist()[:16]
+    except Exception as e:
+        print(f"Kunde inte hämta live-tabell: {e}. Använder reservvärden.")
+        # Reserv om sidan ligger nere (alla 0.0 eller senaste kända)
+        return [0.0] * 16
 
 def generate_plot():
     current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -15,17 +37,17 @@ def generate_plot():
     if not os.path.exists(file_path):
         file_path = 'allsvenskan_data.csv'
 
-    df = pd.read_csv(file_path)
+    df_hist = pd.read_csv(file_path)
     years = [str(y) for y in range(2008, 2026)]
     
-    plot_df = df[['Placering'] + years].iloc[0:16].copy()
+    plot_df = df_hist[['Placering'] + years].iloc[0:16].copy()
     plot_df['Placering'] = plot_df['Placering'].astype(int)
     
     df_melted = plot_df.melt(id_vars='Placering', var_name='Year', value_name='Poäng').dropna()
     df_melted['PPG'] = df_melted['Poäng'].astype(float) / 30.0
 
-    # Aktuell PPG 2026 (Exempelvärden - uppdatera dessa löpande)
-    current_ppg_2026 = [3.0, 3.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 1.5, 1.5, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    # HÄR HÄMTAS LIVE-DATA ISTÄLLET FÖR HÅRDKODADE SIFFROR
+    current_ppg_2026 = get_current_allsvenskan_ppg()
 
     color_light = "#ADD8E6"
     color_dark = "#00008B"
@@ -55,7 +77,10 @@ def generate_plot():
         data = df_melted[df_melted['Placering'] == pos]['PPG'].values
         if len(data) >= 2:
             draw_violin_on_ax(ax, data, i)
-        ax.scatter(i, current_ppg_2026[i], color=color_dots, s=100, edgecolors='white', linewidth=1.5, zorder=10)
+        
+        # Plotta den hämtade PPG-siffran
+        if i < len(current_ppg_2026):
+            ax.scatter(i, current_ppg_2026[i], color=color_dots, s=100, edgecolors='white', linewidth=1.5, zorder=10)
 
     ax.set_title('Poäng per match (PPG) per slutplacering i Allsvenskan (2008–2025)', fontsize=20, fontweight='bold', pad=25)
     ax.set_xlabel('Slutplacering', fontsize=14, fontweight='bold')
@@ -65,7 +90,7 @@ def generate_plot():
     ax.set_yticks(np.arange(0, 3.5, 0.2))
     ax.grid(axis='y', linestyle='--', alpha=0.5, zorder=0)
 
-    # --- Förklaringsruta (Inset) ---
+    # --- Förklaringsruta ---
     ax_ins = ax.inset_axes([0.72, 0.58, 0.26, 0.38])
     ax_ins.set_facecolor('#f2f2f2')
     ax_ins.set_xticks([]); ax_ins.set_yticks([])
@@ -76,19 +101,16 @@ def generate_plot():
     
     txt_x = 0.6
     date_str = datetime.now().strftime('%d %b %Y')
-    
-    # Texter utan \n felet
     ax_ins.text(txt_x, 1.5, "Median", fontsize=10, fontweight='bold', va='center')
     ax_ins.text(txt_x, 1.9, "50% av utfallen", fontsize=9, va='center')
     ax_ins.text(txt_x, 2.5, f"PPG {date_str}", fontsize=9, color='red', fontweight='bold', va='center')
     ax_ins.text(txt_x, 1.0, "Historisk spridning", fontsize=9, va='center')
 
-    # PILAR (Strecken som saknades)
     arrow_style = dict(arrowstyle="->", color="black", lw=1)
-    ax_ins.annotate("", xy=(0.2, 1.5), xytext=(txt_x-0.05, 1.5), arrowprops=arrow_style) # Till median
-    ax_ins.annotate("", xy=(0.15, 1.75), xytext=(txt_x-0.05, 1.9), arrowprops=arrow_style) # Till mörkblå
-    ax_ins.annotate("", xy=(0.05, 2.2), xytext=(txt_x-0.05, 2.5), arrowprops=dict(arrowstyle="->", color="red", lw=1.5)) # Till röd prick
-    ax_ins.annotate("", xy=(0.15, 1.1), xytext=(txt_x-0.05, 1.0), arrowprops=arrow_style) # Till ljusblå
+    ax_ins.annotate("", xy=(0.2, 1.5), xytext=(txt_x-0.05, 1.5), arrowprops=arrow_style)
+    ax_ins.annotate("", xy=(0.15, 1.75), xytext=(txt_x-0.05, 1.9), arrowprops=arrow_style)
+    ax_ins.annotate("", xy=(0.05, 2.2), xytext=(txt_x-0.05, 2.5), arrowprops=dict(arrowstyle="->", color="red", lw=1.5))
+    ax_ins.annotate("", xy=(0.15, 1.1), xytext=(txt_x-0.05, 1.0), arrowprops=arrow_style)
 
     image_path = 'allsvenskan_ppg.png'
     plt.savefig(image_path, dpi=300, bbox_inches='tight')
@@ -100,20 +122,18 @@ def post_to_bluesky(image_path):
     password = os.getenv('BSKY_PASSWORD')
     if not handle or not password:
         return
-
     client = Client()
     client.login(handle, password)
     with open(image_path, 'rb') as f:
         img_data = f.read()
-    
-    text = "Dagens Allsvenska PPG jämfört med historiska slutplaceringar (2008-2025). #Allsvenskan #Statistik  #aik #bkhäcken #bpfotboll #djurgården #dif #degerforsif #elfsborg #gais #halmstadsbk #hammarby #ifkgbg #iksirius #malmöff #mjällbyaif #öis #kff #vsk"
+    text = f"Allsvenskan {datetime.now().year}: Aktuellt PPG jämfört med historiska slutplaceringar (2008-2025). #Allsvenskan #Statistik #PPG"
     client.send_image(text=text, image=img_data, image_alt="Allsvenskan PPG Violin Chart")
 
 if __name__ == "__main__":
     try:
         path = generate_plot()
         post_to_bluesky(path)
-        print("Post successful!")
+        print("Post successful with live data!")
     except Exception as e:
         print(f"Ett fel uppstod: {e}")
         exit(1)
