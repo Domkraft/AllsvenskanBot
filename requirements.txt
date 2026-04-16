@@ -5,3 +5,5 @@ scipy
 atproto
 requests
 lxml
+html5lib
+beautifulsoup4
