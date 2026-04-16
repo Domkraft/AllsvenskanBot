@@ -9,6 +9,8 @@ import re
 from datetime import datetime
 import matplotlib
 matplotlib.use('Agg')
+import io # Lägg till denna högst upp bland dina imports!
+
 
 def get_current_allsvenskan_ppg():
     """Hämtar aktuell tabell från Everysports specifika säsongssida"""
@@ -17,33 +19,30 @@ def get_current_allsvenskan_ppg():
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
         response = requests.get(url, headers=headers, timeout=15)
         
-        # Läs alla tabeller
-        df_list = pd.read_html(response.text)
+        # FIXEN: Vi använder io.StringIO för att tala om för pandas att detta är text, inte en fil
+        df_list = pd.read_html(io.StringIO(response.text))
         
-        # Vi tar den tabell som har ca 16 rader (Allsvenskan)
         df = None
         for table in df_list:
-            if 14 <= len(table) <= 20:
+            # Allsvenskan har 16 lag, vi letar efter en tabell med ungefär det antalet rader
+            if 15 <= len(table) <= 17: 
                 df = table
                 break
         
         if df is None:
-            # Fallback till den största om ingen matchar exakt
             df = max(df_list, key=len)
 
-        # Rensa kolumnnamn
         df.columns = [str(c).strip().upper() for c in df.columns]
-        print(f"Hittade kolumner: {df.columns.tolist()}")
-
-        # Everysport använder ofta 'M' eller 'S' för matcher och 'P' för poäng
+        
+        # Everysport använder ofta 'M' för matcher och 'P' för poäng
+        # Vi letar efter kolumner som innehåller dessa bokstäver
         col_m = [c for c in df.columns if c in ['M', 'S', 'SM', 'MATCHER']][0]
         col_p = [c for c in df.columns if c in ['P', 'POÄNG', 'PTS']][0]
 
-        # Räkna ut PPG för varje lag
         ppg_list = []
         for i, row in df.iterrows():
             try:
-                # Vi rensar bort eventuella tecken och gör till siffror
+                # Vi rensar bort allt som inte är siffror (t.ex. om det står "16 (0)")
                 m = float(re.sub(r'[^\d]', '', str(row[col_m])))
                 p = float(re.sub(r'[^\d]', '', str(row[col_p])))
                 ppg = p / m if m > 0 else 0.0
@@ -51,12 +50,12 @@ def get_current_allsvenskan_ppg():
             except:
                 ppg_list.append(0.0)
 
-        # Returnera de 16 första
         final_list = ppg_list[:16]
         print(f"Hämtade PPG: {final_list}")
         return final_list
 
     except Exception as e:
+        # Nu kommer vi se det riktiga felet här om det fortfarande bråkar
         print(f"Kunde inte hämta tabell från Everysport: {e}")
         return [0.0] * 16
         
