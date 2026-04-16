@@ -106,7 +106,7 @@ def post_to_bluesky(image_path):
     with open(image_path, 'rb') as f:
         img_data = f.read()
     
-    text = "Dagens statistiska genomgång av Allsvenskan 2026. Röda prickar visar aktuellt PPG jämfört med historiska slutplaceringar (2008-2025). #Allsvenskan #Statistik  #aik #bkhäcken #bpfotboll #djurgården #dif #degerforsif #elfsborg #gais #halmstadsbk #hammarby #ifkgbg #iksirius #malmöff #mjällbyaif #öis #kff #vsk"
+    text = "Dagens Allsvenska PPG jämfört med historiska slutplaceringar (2008-2025). #Allsvenskan #Statistik  #aik #bkhäcken #bpfotboll #djurgården #dif #degerforsif #elfsborg #gais #halmstadsbk #hammarby #ifkgbg #iksirius #malmöff #mjällbyaif #öis #kff #vsk"
     client.send_image(text=text, image=img_data, image_alt="Allsvenskan PPG Violin Chart")
 
 if __name__ == "__main__":
