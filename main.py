@@ -9,25 +9,43 @@ from datetime import datetime
 import matplotlib
 matplotlib.use('Agg')
 
+import re # Lägg till denna högst upp vid övriga imports
+
 def get_current_allsvenskan_ppg():
     """Hämtar aktuell tabell och returnerar en lista med PPG för plats 1-16"""
     try:
-        # Vi hämtar tabell-data (exempelvis via ett öppet API eller en stabil sportkälla)
-        # Här använder vi en JSON-källa för Allsvenskan 2026
-        url = "https://webbservice.svenskfotboll.se/fe/widget/getlivedata?competitionId=118942" # Exempel-ID
-        # Om källan ovan kräver specifika headers, eller om vi skrapar en HTML-tabell:
-        df_list = pd.read_html("https://www.svt.se/sport/fotboll/allsvenskan/tabell")
+        # Vi använder en källa som ofta är mer lättläst för maskiner
+        url = "https://www.svt.se/sport/fotboll/allsvenskan/tabell"
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        response = requests.get(url, headers=headers)
+        
+        # Hämta alla tabeller på sidan
+        df_list = pd.read_html(response.text)
         df_current = df_list[0]
+
+        # Felsökning: Skriv ut kolumnerna i loggen så vi ser vad vi jobbar med
+        print(f"Hittade kolumner: {df_current.columns.tolist()}")
+
+        # Identifiera rätt kolumner (ofta heter de 'S'/'SM' och 'P'/'Poäng')
+        # Vi letar efter kolumner som innehåller siffror och matchar mönstret
+        col_s = [c for c in df_current.columns if any(x in str(c).upper() for x in ['S', 'SM', 'SPELADE'])][0]
+        col_p = [c for c in df_current.columns if any(x in str(c).upper() for x in ['P', 'POÄNG', 'PTS'])][0]
+
+        # Rensa data (ta bort allt som inte är siffror, utifall det finns ' (V)' eller liknande)
+        df_current['S_clean'] = df_current[col_s].astype(str).str.extract('(\d+)').astype(float)
+        df_current['P_clean'] = df_current[col_p].astype(str).str.extract('(\d+)').astype(float)
+
+        # Beräkna PPG, men hantera division med noll (om säsongen precis börjat)
+        df_current['PPG'] = df_current.apply(
+            lambda x: x['P_clean'] / x['S_clean'] if x['S_clean'] > 0 else 0.0, axis=1
+        )
         
-        # Vi antar att tabellen har kolumnerna 'S' (Spelade) och 'P' (Poäng)
-        # Vi räknar ut PPG för varje rad (lag)
-        df_current['PPG'] = df_current['P'].astype(float) / df_current['S'].astype(float)
-        
-        # Returnera de 16 första lagens PPG som en lista
-        return df_current['PPG'].tolist()[:16]
+        ppg_list = df_current['PPG'].tolist()[:16]
+        print(f"Hämtade PPG-värden: {ppg_list}")
+        return ppg_list
+
     except Exception as e:
-        print(f"Kunde inte hämta live-tabell: {e}. Använder reservvärden.")
-        # Reserv om sidan ligger nere (alla 0.0 eller senaste kända)
+        print(f"Kunde inte hämta live-tabell: {e}")
         return [0.0] * 16
 
 def generate_plot():
