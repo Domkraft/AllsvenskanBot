@@ -7,13 +7,16 @@ import os
 from datetime import datetime
 
 def generate_plot():
-    # Denna rad ser till att vi letar i samma mapp som skriptet ligger i
-    base_path = os.path.dirname(os.path.abspath(__file__))
-    file_path = os.path.join(base_path, 'allsvenskan_data.csv')
+    # Denna del ser till att vi hittar filen oavsett var skriptet körs ifrån
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    file_path = os.path.join(current_dir, 'allsvenskan_data.csv')
     
-    df = pd.read_csv(file_path)
+    if not os.path.exists(file_path):
+        # Reservplan om filen ligger i mappen ovanför
+        file_path = 'allsvenskan_data.csv'
+
     # Ladda data
-    df = pd.read_csv('allsvenskan_data.csv')
+    df = pd.read_csv(file_path)
     years = [str(y) for y in range(2008, 2026)]
     
     plot_df = df[['Placering'] + years].iloc[0:16].copy()
@@ -22,7 +25,7 @@ def generate_plot():
     df_melted = plot_df.melt(id_vars='Placering', var_name='Year', value_name='Poäng').dropna()
     df_melted['PPG'] = df_melted['Poäng'].astype(float) / 30.0
 
-    # Aktuell PPG 2026 (Exempelvärden, uppdatera vid behov)
+    # Aktuell PPG 2026 (Exempelvärden per den 16 april)
     current_ppg_2026 = [3.0, 3.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 1.5, 1.5, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
     color_light = "#ADD8E6"
@@ -74,9 +77,9 @@ def generate_plot():
     txt_x = 0.5
     date_str = datetime.now().strftime('%d %B %Y')
     ax_ins.text(txt_x, 1.5, "Median", fontsize=10, verticalalignment='center', fontweight='bold')
-    ax_ins.text(txt_x, 1.9, "50% av säsongernas\nPPG-resultat", fontsize=9, verticalalignment='center')
-    ax_ins.text(txt_x, 2.5, f"PPG den\n{date_str}", fontsize=9, verticalalignment='center', color='red', fontweight='bold')
-    ax_ins.text(txt_x, 1.0, "Hela spridningen\n(2008–2025)", fontsize=9, verticalalignment='center')
+    ax_ins.text(txt_x, 1.9, "50% av säsongernas\\nPPG-resultat", fontsize=9, verticalalignment='center')
+    ax_ins.text(txt_x, 2.5, f"PPG den\\n{date_str}", fontsize=9, verticalalignment='center', color='red', fontweight='bold')
+    ax_ins.text(txt_x, 1.0, "Hela spridningen\\n(2008–2025)", fontsize=9, verticalalignment='center')
 
     image_path = 'allsvenskan_ppg.png'
     plt.savefig(image_path, dpi=300, bbox_inches='tight')
@@ -87,7 +90,7 @@ def post_to_bluesky(image_path):
     handle = os.getenv('BSKY_HANDLE')
     password = os.getenv('BSKY_PASSWORD')
     if not handle or not password:
-        print("Missing Bluesky credentials.")
+        print("Missing Bluesky credentials in Environment Variables.")
         return
 
     client = Client()
@@ -95,10 +98,14 @@ def post_to_bluesky(image_path):
     with open(image_path, 'rb') as f:
         img_data = f.read()
     
-    text = "Dagens statistiska genomgång av Allsvenskan. Röda prickar visar aktuellt PPG jämfört med historiska slutplaceringar (2008-2025). #Allsvenskan #Statistik"
+    text = "Dagens statistiska genomgång av Allsvenskan 2026. Röda prickar visar aktuellt PPG jämfört med historiska slutplaceringar (2008-2025). #Allsvenskan #Statistik"
     client.send_image(text=text, image=img_data, image_alt="Allsvenskan PPG Violin Chart")
     print("Post successful!")
 
 if __name__ == "__main__":
-    path = generate_plot()
-    post_to_bluesky(path)
+    try:
+        path = generate_plot()
+        post_to_bluesky(path)
+    except Exception as e:
+        print(f"Ett fel uppstod: {e}")
+        exit(1)
