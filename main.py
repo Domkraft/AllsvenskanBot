@@ -145,5 +145,5 @@ if __name__ == "__main__":
     if ppg_results:
         path = generate_plot(ppg_results)
         if path:
-            # post_to_bluesky(path) # Avkommentera när du vill aktivera postningen
+            post_to_bluesky(path)
             print(f"Graf skapad: {path}. PPG: {ppg_results}")
