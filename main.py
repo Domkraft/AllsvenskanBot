@@ -68,10 +68,31 @@ def get_current_allsvenskan_ppg():
 
 def generate_plot(current_ppg):
     """Skapar violin-grafen baserat på historik och aktuell PPG."""
-    # Läs historisk data (2008-2025)
-    df_hist = pd.read_csv('AS_data.xlsx - hist omg.csv')
+    if not current_ppg or len(current_ppg) < 16:
+        print("Fel: PPG-listan är ofullständig.")
+        return None
+
+    # Läs historisk data med dynamisk sökväg
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    file_path = os.path.join(current_dir, 'allsvenskan_data.csv')
+    
+    if not os.path.exists(file_path):
+        print(f"Kritiskt fel: Hittade inte {file_path}")
+        return None
+
+    df_hist = pd.read_csv(file_path)
+    
+    # Skapa kolumnnamn för 2008-2025
     years = [str(y) for y in range(2008, 2026)]
-    plot_df = df_hist[['Placering'] + years].iloc[0:16].copy()
+    
+    # Säkerställ att vi bara tar de kolumner som faktiskt finns i din CSV
+    available_years = [y for y in years if y in df_hist.columns]
+    
+    if not available_years:
+        print(f"Fel: Hittade inga årskolumner i {file_path}. Kolumner: {df_hist.columns}")
+        return None
+        
+    plot_df = df_hist[['Placering'] + available_years].iloc[0:16].copy()
     
     df_melt = plot_df.melt(id_vars='Placering', var_name='Year', value_name='Poäng').dropna()
     df_melt['PPG'] = df_melt['Poäng'].astype(float) / 30.0
