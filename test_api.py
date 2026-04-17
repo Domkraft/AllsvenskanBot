@@ -1,7 +1,8 @@
 import requests
 import json
 
-def test_rapid_api():
+def test_standing_api():
+    # Vi använder den endpoint som ger tabellen för ligan
     url = "https://free-api-live-football-data.p.rapidapi.com/football-get-standing-all"
     querystring = {"leagueid": "113"} # Allsvenskan
 
@@ -11,39 +12,35 @@ def test_rapid_api():
     }
 
     try:
-        print("Anropar RapidAPI: Free API Live Football Data...")
+        print("Anropar RapidAPI för att hämta tabellen...")
         response = requests.get(url, headers=headers, params=querystring, timeout=15)
         
         if response.status_code != 200:
-            print(f"Fel statuskod: {response.status_code}")
-            print(f"Svar: {response.text}")
+            print(f"Fel: Statuskod {response.status_code}")
+            print(response.text)
             return
 
         data = response.json()
         
-        # Vi skriver ut hela JSON-strukturen (formaterad) så vi kan inspektera den
-        print("\n--- RÅDATA FRÅN API ---")
-        print(json.dumps(data, indent=2))
-        print("-----------------------\n")
+        # Vi skriver ut de första 2000 tecknen av svaret för att se strukturen
+        print("\n--- JSON STRUKTUR (START) ---")
+        print(json.dumps(data, indent=2)[:2000])
+        print("--- SLUT PÅ UTDRAG ---\n")
 
-        # Försök att extrahera tabellen baserat på vanlig struktur
-        # Vi letar efter var lagen ligger (t.ex. data['response']['standings'])
-        res = data.get('response', {})
-        standings = res.get('standings', [])
-
-        if not standings:
-            # Ibland ligger det direkt under 'data' eller 'content'
-            print("Kunde inte hitta 'standings' i 'response'. Letar i hela objektet...")
-            # Här får vi titta i loggen efter körning för att se var den gömmer sig
+        # Försök hitta tabellen i det här specifika API:ets struktur
+        # Ofta: data -> response -> standings -> table
+        if 'response' in data and 'standings' in data['response']:
+            standings = data['response']['standings']
+            print(f"Hittade {len(standings)} rader i tabellen.")
+            
+            # Visa första laget som exempel för att se fältnamn (points, played, etc)
+            if len(standings) > 0:
+                print(f"Exempel på lagdata: {standings[0]}")
         else:
-            print(f"Hittade {len(standings)} rader i tabellen:")
-            for team in standings:
-                # Vi gissar inte fältnamnen, vi skriver ut vad som finns i första laget
-                print(f"Lag-objekt exempel: {team}")
-                break 
+            print("Kunde inte hitta 'standings' i 'response'. Kolla utdraget ovan.")
 
     except Exception as e:
-        print(f"Ett tekniskt fel uppstod: {e}")
+        print(f"Ett fel uppstod: {e}")
 
 if __name__ == "__main__":
-    test_rapid_api()
+    test_standing_api()
