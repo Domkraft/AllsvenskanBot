@@ -6,7 +6,7 @@ def test_connection():
     api_key = "650b6ee51b58784aa2427a9242d7aed9"
     
     # Vi testar både 2025 och 2026 för att se vad som finns tillgängligt
-    for season in ["2025", "2026"]:
+    for season in ["2024", "2026"]:
         print(f"\n--- Testar säsong {season} ---")
         params = {
             'league': '113',
