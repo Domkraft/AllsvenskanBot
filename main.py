@@ -13,57 +13,46 @@ import io # Lägg till denna högst upp bland dina imports!
 
 
 def get_current_allsvenskan_ppg():
-    """Hämtar data genom att leta efter siffermönster om read_html misslyckas"""
-    try:
-        url = "https://www.everysport.com/fotboll-herr/2026/liga/allsvenskan/36593"
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
-        response = requests.get(url, headers=headers, timeout=15)
-        
-        # Försök 1: Standardmetoden
-        try:
-            df_list = pd.read_html(io.StringIO(response.text))
-            if df_list:
-                df = max(df_list, key=len)
-                # ... (samma logik som förut för att extrahera PPG)
-                # Om detta fungerar, returnera listan här
-        except:
-            pass
+    """Hämtar aktuell tabell via API-Football (v3.football.api-sports.io)"""
+    url = "https://v3.football.api-sports.io/standings"
+    
+    # Parametrar för Allsvenskan (League ID 113) och säsongen 2026
+    params = {
+        'league': '113',
+        'season': '2026'
+    }
+    
+    headers = {
+        'x-rapidapi-key': '650b6ee51b58784aa2427a9242d7aed9',
+        'x-rapidapi-host': 'v3.football.api-sports.io'
+    }
 
-        # Försök 2: "Brute force" - leta efter rader som ser ut som tabellrader
-        # Vi letar efter rader med lagnamn följt av siffror (Matcher, V, O, F, mål, Poäng)
-        # Denna metod är ofta säkrare när sajter kör med <div> istället för <table>
-        lines = response.text.split('\n')
-        extracted_data = []
-        
-        # Vi letar efter mönster: ofta kommer siffrorna för M och P nära varandra
-        # Här använder vi BeautifulSoup för att rensa bort HTML och bara se texten
-        from bs4 import BeautifulSoup
-        soup = BeautifulSoup(response.text, 'html.parser')
-        text_content = soup.get_text(separator='|')
-        
-        # Dela upp i bitar och leta efter poängserier
-        # Detta är en förenkling, men vi letar efter 16 rader som har rimlig PPG
-        # Som en sista säkerhetsåtgärd om skrapning är för svårt:
-        # Hämta från en alternativ, enklare källa (Sveriges Radio)
-        alt_url = "https://api.sr.se/api/v2/sport/table?id=204" # Allsvenskan ID hos SR
-        # (SR:s API är extremt stabilt och returnerar ren XML/JSON)
-        
-        print("Försöker hämta från Sveriges Radio (stabilare källa)...")
-        res_sr = requests.get("https://api.sr.se/api/v2/sport/table?id=204&format=json")
-        data = res_sr.json()
+    try:
+        response = requests.get(url, headers=headers, params=params, timeout=15)
+        response.raise_for_status()
+        data = response.json()
+
+        # Extrahera tabellen från JSON-responsen
+        # Sökväg: response -> response[0] -> league -> standings[0]
+        standings = data['response'][0]['league']['standings'][0]
         
         ppg_list = []
-        for team in data['table']['tablerow']:
-            m = float(team['games'])
-            p = float(team['points'])
-            ppg_list.append(p / m if m > 0 else 0.0)
+        for team in standings:
+            # Hämtar spelade matcher (played) och poäng (points)
+            played = team['all']['played']
+            points = team['points']
             
-        print(f"Hämtade PPG från SR: {ppg_list[:16]}")
+            # Beräkna PPG
+            ppg = points / played if played > 0 else 0.0
+            ppg_list.append(round(ppg, 2))
+            
+        print(f"Hämtade PPG via API-Sports: {ppg_list[:16]}")
         return ppg_list[:16]
 
     except Exception as e:
-        print(f"All hämtning misslyckades: {e}")
-        return [0.0] * 16
+        print(f"Kritiskt fel vid anrop till API-Sports: {e}")
+        # Vi returnerar en tom lista eller raise för att undvika felaktig plot
+        raise
         
 def generate_plot():
     current_dir = os.path.dirname(os.path.abspath(__file__))
