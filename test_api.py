@@ -1,36 +1,49 @@
 import requests
 import json
 
-def test_connection():
-    url = "https://v3.football.api-sports.io/standings"
-    api_key = "650b6ee51b58784aa2427a9242d7aed9"
-    
-    # Vi testar både 2025 och 2026 för att se vad som finns tillgängligt
-    for season in ["2024", "2026"]:
-        print(f"\n--- Testar säsong {season} ---")
-        params = {
-            'league': '113',
-            'season': season
-        }
-        headers = {'x-apisports-key': api_key}
+def test_rapid_api():
+    url = "https://free-api-live-football-data.p.rapidapi.com/football-get-standing-all"
+    querystring = {"leagueid": "113"} # Allsvenskan
 
-        try:
-            response = requests.get(url, headers=headers, params=params, timeout=15)
-            data = response.json()
-            
-            if data.get('response'):
-                standings = data['response'][0]['league']['standings'][0]
-                print(f"Framgång! Hittade {len(standings)} lag.")
-                for team in standings:
-                    name = team['team']['name']
-                    p = team['points']
-                    m = team['all']['played']
-                    ppg = p/m if m > 0 else 0.0
-                    print(f"{team['rank']}. {name}: {p}p på {m} matcher (PPG: {ppg:.2f})")
-            else:
-                print(f"Ingen data för {season}. API-svar: {data}")
-        except Exception as e:
-            print(f"Fel vid test av {season}: {e}")
+    headers = {
+        "x-rapidapi-host": "free-api-live-football-data.p.rapidapi.com",
+        "x-rapidapi-key": "170b780b7bmshecdec44a331227cp1015d9jsn69b356a1e214"
+    }
+
+    try:
+        print("Anropar RapidAPI: Free API Live Football Data...")
+        response = requests.get(url, headers=headers, params=querystring, timeout=15)
+        
+        if response.status_code != 200:
+            print(f"Fel statuskod: {response.status_code}")
+            print(f"Svar: {response.text}")
+            return
+
+        data = response.json()
+        
+        # Vi skriver ut hela JSON-strukturen (formaterad) så vi kan inspektera den
+        print("\n--- RÅDATA FRÅN API ---")
+        print(json.dumps(data, indent=2))
+        print("-----------------------\n")
+
+        # Försök att extrahera tabellen baserat på vanlig struktur
+        # Vi letar efter var lagen ligger (t.ex. data['response']['standings'])
+        res = data.get('response', {})
+        standings = res.get('standings', [])
+
+        if not standings:
+            # Ibland ligger det direkt under 'data' eller 'content'
+            print("Kunde inte hitta 'standings' i 'response'. Letar i hela objektet...")
+            # Här får vi titta i loggen efter körning för att se var den gömmer sig
+        else:
+            print(f"Hittade {len(standings)} rader i tabellen:")
+            for team in standings:
+                # Vi gissar inte fältnamnen, vi skriver ut vad som finns i första laget
+                print(f"Lag-objekt exempel: {team}")
+                break 
+
+    except Exception as e:
+        print(f"Ett tekniskt fel uppstod: {e}")
 
 if __name__ == "__main__":
-    test_connection()
+    test_rapid_api()
