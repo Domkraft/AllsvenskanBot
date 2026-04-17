@@ -15,8 +15,10 @@ jobs:
         with:
           python-version: '3.11'
 
+      # Detta steg saknades eller var ofullständigt:
       - name: Install dependencies
-        run: pip install requests
+        run: |
+          pip install pandas requests
 
       - name: Run API Test
         run: python test_api.py
