@@ -2,7 +2,7 @@ name: Daily PPG Update
 
 on:
   schedule:
-    - cron: '15 6 * * *'  # Kl 21:00 svensk tid
+    - cron: '15 6 * * *' 
   workflow_dispatch:
 
 # Denna del läggs till för att tvinga Node.js 24 och ta bort varningen
