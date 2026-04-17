@@ -13,18 +13,16 @@ import io # Lägg till denna högst upp bland dina imports!
 
 
 def get_current_allsvenskan_ppg():
-    """Hämtar aktuell tabell via API-Football (v3.football.api-sports.io)"""
+    """Hämtar aktuell tabell via API-Sports och beräknar PPG"""
     url = "https://v3.football.api-sports.io/standings"
     
-    # Parametrar för Allsvenskan (League ID 113) och säsongen 2026
     params = {
-        'league': '113',
+        'league': '113', # Allsvenskan
         'season': '2026'
     }
     
     headers = {
-        'x-rapidapi-key': '650b6ee51b58784aa2427a9242d7aed9',
-        'x-rapidapi-host': 'v3.football.api-sports.io'
+        'x-apisports-key': '650b6ee51b58784aa2427a9242d7aed9'
     }
 
     try:
@@ -32,27 +30,34 @@ def get_current_allsvenskan_ppg():
         response.raise_for_status()
         data = response.json()
 
-        # Extrahera tabellen från JSON-responsen
-        # Sökväg: response -> response[0] -> league -> standings[0]
-        standings = data['response'][0]['league']['standings'][0]
+        # Navigering enligt JSON-strukturen:
+        # response[0] -> league -> standings[0] (vilket är listan med lag)
+        if not data.get('response'):
+            print("Inget svar från API:et. Kontrollera nyckel och säsong.")
+            return None
+            
+        standings_list = data['response'][0]['league']['standings'][0]
         
-        ppg_list = []
-        for team in standings:
-            # Hämtar spelade matcher (played) och poäng (points)
-            played = team['all']['played']
-            points = team['points']
+        ppg_results = []
+        for team_data in standings_list:
+            points = team_data.get('points', 0)
+            played = team_data.get('all', {}).get('played', 0)
             
-            # Beräkna PPG
-            ppg = points / played if played > 0 else 0.0
-            ppg_list.append(round(ppg, 2))
+            # Beräkna PPG (Poäng per match)
+            if played > 0:
+                ppg = points / played
+            else:
+                ppg = 0.0
             
-        print(f"Hämtade PPG via API-Sports: {ppg_list[:16]}")
-        return ppg_list[:16]
+            ppg_results.append(round(ppg, 2))
+            
+        # Returnera PPG för alla 16 lag i tabellordning
+        print(f"Hämtade PPG-värden för {len(ppg_results)} lag.")
+        return ppg_results
 
     except Exception as e:
-        print(f"Kritiskt fel vid anrop till API-Sports: {e}")
-        # Vi returnerar en tom lista eller raise för att undvika felaktig plot
-        raise
+        print(f"Ett fel uppstod vid hämtning av API-data: {e}")
+        return None
         
 def generate_plot():
     current_dir = os.path.dirname(os.path.abspath(__file__))
