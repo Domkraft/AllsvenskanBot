@@ -130,11 +130,15 @@ def generate_plot(current_ppg):
 def post_to_bluesky(image_path):
     """Postar bilden till Bluesky."""
     client = Client()
-    # Se till att du har dessa miljövariabler i GitHub Secrets!
-    client.login(os.environ['BLUESKY_HANDLE'], os.environ['BLUESKY_PASSWORD'])
+    # Uppdaterat till de exakta namnen på dina miljövariabler
+    client.login(os.environ['BSKY_HANDLE'], os.environ['BSKY_PASSWORD'])
     
     with open(image_path, 'rb') as f:
         img_data = f.read()
+    
+    text = f"Aktuell PPG i Allsvenskan 2026 jämfört med slutplaceringarnas historik (2008-2025). Uppdaterat {datetime.now().strftime('%Y-%m-%d')}."
+    client.send_image(text=text, image=img_data, image_alt="Allsvenskan PPG Chart")
+    print("Postad till Bluesky!")
     
     text = f"Aktuell PPG i Allsvenskan 2026 jämfört med slutplaceringarnas historik (2008-2025). Uppdaterat {datetime.now().strftime('%Y-%m-%d')}."
     client.send_image(text=text, image=img_data, image_alt="Allsvenskan PPG Chart")
