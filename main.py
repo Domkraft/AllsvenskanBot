@@ -86,12 +86,12 @@ def draw_violin_on_ax(ax, data, pos, width_scale=0.4):
     # Hela spridningen (Ljusblå)
     ax.fill_betweenx(y_range, pos - w, pos + w, color=COLOR_LIGHT, edgecolor='0.3', lw=1, zorder=1)
     
-    # 50% av utfallen (Mörkblå)
+    # 50% av utfallen (Mörkblå IQR)
     y_iqr = np.linspace(q1, q3, 100)
     w_iqr = kde(y_iqr) / (kde(y_range).max() if kde(y_range).max() > 0 else 1) * width_scale
     ax.fill_betweenx(y_iqr, pos - w_iqr, pos + w_iqr, color=COLOR_DARK, edgecolor='none', zorder=2)
     
-    # Median (Gul)
+    # Median (Gul linje)
     median_w = kde(median) / (kde(y_range).max() if kde(y_range).max() > 0 else 1) * width_scale
     ax.hlines(median, pos - median_w, pos + median_w, color=COLOR_MEDIAN, lw=3, zorder=3)
 
@@ -118,8 +118,11 @@ def generate_plot(current_ppg):
         return None
         
     plot_df = df_hist[['Placering'] + available_years].iloc[0:16].copy()
+    
+    # Konvertera ev kommatecken i datafilen till punkt och beräkna PPG
     df_melt = plot_df.melt(id_vars='Placering', var_name='Year', value_name='Poäng').dropna()
-    df_melt['PPG'] = df_melt['Poäng'].astype(float) / 30.0
+    df_melt['Poäng'] = pd.to_numeric(df_melt['Poäng'].astype(str).str.replace(',', '.'))
+    df_melt['PPG'] = df_melt['Poäng'] / 30.0
 
     fig, ax = plt.subplots(figsize=(15, 9))
     
@@ -130,22 +133,24 @@ def generate_plot(current_ppg):
         if len(data) >= 2:
             draw_violin_on_ax(ax, data, i)
         
-        # Aktuell PPG 2026 (Röd prick)
+        # Aktuell PPG 2026 (Röd prick). clip_on=False så de syns även om de hamnar utanför gränsen.
         if i < len(current_ppg):
-            ax.scatter(i, current_ppg[i], color=COLOR_DOTS, s=120, edgecolors='white', linewidth=1.5, zorder=10)
+            ax.scatter(i, current_ppg[i], color=COLOR_DOTS, s=120, edgecolors='white', linewidth=1.5, zorder=10, clip_on=False)
 
     # Titlar och axlar
-    dagens_datum = datetime.now().strftime('%Y-%m-%d')
     ax.set_title('Poäng per match (PPG) per placering i Allsvenskan (2008–2025)', fontsize=20, fontweight='bold', pad=25)
     ax.set_xlabel('Tabellplacering', fontsize=14)
     ax.set_ylabel('Points Per Game (PPG)', fontsize=14)
     ax.set_xticks(range(16))
     ax.set_xticklabels(range(1, 17), fontsize=12)
-    ax.set_yticks(np.arange(0, 3.5, 0.2))
+    
+    # Nya klippta y-gränser
+    ax.set_ylim(0.2, 2.6)
+    ax.set_yticks(np.arange(0.2, 2.7, 0.2))
     ax.grid(axis='y', linestyle='--', alpha=0.5, zorder=0)
 
     # --- Förklaringsruta (Inset) ---
-    ax_ins = ax.inset_axes([0.72, 0.58, 0.26, 0.38])
+    ax_ins = ax.inset_axes([0.74, 0.62, 0.25, 0.35])
     ax_ins.set_facecolor('#f2f2f2')
     ax_ins.set_xticks([])
     ax_ins.set_yticks([])
@@ -153,27 +158,30 @@ def generate_plot(current_ppg):
     # Generisk violin för rutan
     generic_data = np.random.normal(1.5, 0.4, 2000)
     draw_violin_on_ax(ax_ins, generic_data, 0, width_scale=0.25)
-    ax_ins.scatter(0, 2.2, color=COLOR_DOTS, s=100, edgecolors='white', zorder=10)
+    ax_ins.scatter(0, 2.2, color=COLOR_DOTS, s=120, edgecolors='white', zorder=10)
 
     ax_ins.set_xlim(-0.5, 1.8) 
     ax_ins.set_ylim(generic_data.min()-0.3, generic_data.max()+0.7)
 
     # Textbeskrivningar inuti rutan
-    txt_x = 0.5
+    txt_x = 0.45
     ax_ins.text(txt_x, 1.5, "Median", fontsize=10, verticalalignment='center', fontweight='bold', color='black')
     ax_ins.text(txt_x, 1.9, "50% av säsongernas\nPPG-resultat", fontsize=9, verticalalignment='center', color='black')
     
-    # Använd dynamiskt datum i legend-texten
-    datum_text = datetime.now().strftime('%-d %B %Y')
+    # Dynamiskt datum med svensk månad i legend-texten
+    months_sv = ["januari", "februari", "mars", "april", "maj", "juni", "juli", "augusti", "september", "oktober", "november", "december"]
+    now = datetime.now()
+    datum_text = f"{now.day} {months_sv[now.month-1]} {now.year}"
+    
     ax_ins.text(txt_x, 2.45, f"PPG den\n{datum_text}", fontsize=9, verticalalignment='center', color='red', fontweight='bold')
     ax_ins.text(txt_x, 1.0, "Hela spridningen\n(2008–2025)", fontsize=9, verticalalignment='center', color='black')
 
     # Pips/Arrows inuti rutan
     arrow_props = dict(arrowstyle="->", color='black', lw=0.8)
-    ax_ins.annotate('', xy=(0.2, 1.5), xytext=(0.45, 1.5), arrowprops=arrow_props) # Median
-    ax_ins.annotate('', xy=(0.15, 1.75), xytext=(0.45, 1.9), arrowprops=arrow_props) # 50%
-    ax_ins.annotate('', xy=(0.05, 2.2), xytext=(0.45, 2.45), arrowprops=dict(arrowstyle="->", color='red', lw=0.8, connectionstyle="arc3,rad=-0.1")) 
-    ax_ins.annotate('', xy=(0.15, 1.1), xytext=(0.45, 1.0), arrowprops=arrow_props) # Spread
+    ax_ins.annotate('', xy=(0.2, 1.5), xytext=(0.40, 1.5), arrowprops=arrow_props) # Median
+    ax_ins.annotate('', xy=(0.15, 1.75), xytext=(0.40, 1.9), arrowprops=arrow_props) # 50%
+    ax_ins.annotate('', xy=(0.05, 2.2), xytext=(0.40, 2.45), arrowprops=dict(arrowstyle="->", color='red', lw=0.8, connectionstyle="arc3,rad=-0.1")) 
+    ax_ins.annotate('', xy=(0.15, 1.1), xytext=(0.40, 1.0), arrowprops=arrow_props) # Spread
 
     img_path = 'allsvenskan_ppg_update.png'
     plt.savefig(img_path, dpi=300, bbox_inches='tight')
