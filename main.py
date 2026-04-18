@@ -158,18 +158,33 @@ def generate_plot(current_ppg):
     plt.close()
     return img_path
 
+from atproto import Client, client_utils # Importera client_utils
+
 def post_to_bluesky(image_path):
-    """Postar bilden till Bluesky."""
     client = Client()
     client.login(os.environ['BSKY_HANDLE'], os.environ['BSKY_PASSWORD'])
     
     with open(image_path, 'rb') as f:
         img_data = f.read()
     
-    dagens_datum = datetime.now().strftime('%Y-%m-%d')
-    text = f"Aktuell PPG i Allsvenskan 2026 jämfört med slutplaceringarnas historik (2008-2025). Uppdaterat {dagens_datum}."
-    client.send_image(text=text, image=img_data, image_alt="Allsvenskan PPG Chart")
-    print("Postad till Bluesky!")
+    # Skapa texten med "RichText" för att göra taggarna klickbara/sökbara
+    # Vi lägger bara till de viktigaste taggarna för att undvika spamfilter
+    text_builder = client_utils.TextBuilder()
+    text_builder.text(f"Aktuell PPG i Allsvenskan 2026 (2008-2025). Uppdaterat {datetime.now().strftime('%Y-%m-%d')}.\n\n")
+    text_builder.tag("#Allsvenskan", "Allsvenskan")
+    text_builder.text(" ")
+    text_builder.tag("#ifkgbg", "ifkgbg")
+    text_builder.text(" ")
+    text_builder.tag("#AIK", "AIK")
+    # Lägg till ett fåtal lag till om det behövs, men håll det kort.
+
+    # Skicka bild med den "rika" texten
+    client.send_image(
+        text=text_builder, 
+        image=img_data, 
+        image_alt="Diagram över Allsvenskans PPG-statistik baserat på historik."
+    )
+    print("Postad till Bluesky med klickbara taggar!")
 
 if __name__ == "__main__":
     ppg_results = get_current_allsvenskan_ppg()
