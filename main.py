@@ -176,6 +176,16 @@ def post_to_bluesky(image_path):
     text_builder.tag("#ifkgbg", "ifkgbg")
     text_builder.text(" ")
     text_builder.tag("#AIK", "AIK")
+    text_builder.text(" ")
+    text_builder.tag("#MFF", "MFF")
+    text_builder.text(" ")
+    text_builder.tag("#HIF", "HIF")
+    text_builder.text(" ")
+    text_builder.tag("#DIF", "DIF")
+    text_builder.text(" ")
+    text_builder.tag("#GAIS", "GAIS")
+    text_builder.text(" ")
+    text_builder.tag("#ÖIS", "ÖIS")    
     # Lägg till ett fåtal lag till om det behövs, men håll det kort.
 
     # Skicka bild med den "rika" texten
